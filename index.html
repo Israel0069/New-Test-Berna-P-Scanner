@@ -108,7 +108,6 @@
             }
         }
 
-        /* Style for the receipt printout */
         #receipt {
             display: none;
         }
@@ -157,7 +156,7 @@
                 <h4>SCAN RESULT</h4>
                 <div id="result">Result Here</div>
                 <button onclick="printReceipt()">Print Receipt</button>
-                <button onclick="saveToSession()">Proceed</button> <!-- New Button -->
+                <button onclick="saveToSession()">Proceed</button>
                 <h4>Total Price</h4>
                 <div id="total-price">0.00</div>
             </div>
@@ -169,10 +168,10 @@
                 <thead>
                     <tr>
                         <th>Product Name</th>
-                        <th>Store Name</th> <!-- Added Store Name column -->
+                        <th>Store Name</th>
                         <th>Price</th>
-                        <th>Quantity</th> <!-- Input box for quantity -->
-                        <th>Total Price</th> <!-- Total Price column -->
+                        <th>Quantity</th>
+                        <th>Total</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -192,7 +191,7 @@
             <thead>
                 <tr>
                     <th>Product Name</th>
-                    <th>Store Name</th> <!-- Added Store Name column -->
+                    <th>Store Name</th>
                     <th>Price</th>
                 </tr>
             </thead>
@@ -205,128 +204,101 @@
 
     <script type="text/javascript">
         let totalPrice = 0;
-        let isProcessing = false; // Variable to control scan delay
-        let scannedProducts = []; // Array to store scanned products
+        let isProcessing = false;
+        let scannedProducts = [];
 
-        // Get the store_name from the URL parameters
         const urlParams = new URLSearchParams(window.location.search);
-        const storeName = urlParams.get('store_name') || 'DefaultStoreName'; // Replace with the actual store name variable
+        const storeName = urlParams.get('store_name') || 'DefaultStoreName';
 
         function onScanSuccess(qrCodeMessage) {
-            if (isProcessing) return; // Ignore scans during the delay
+            if (isProcessing) return;
             isProcessing = true;
 
             try {
                 const qrData = JSON.parse(qrCodeMessage);
-                const { product_name, price, store_name } = qrData; // Get store_name from QR data
+                const { product_name, price, store_name } = qrData;
 
-                // Check if the product already exists in the scanned products array
-                const existingProductIndex = scannedProducts.findIndex(product => product.product_name === product_name && product.store_name === store_name);
+                totalPrice += parseFloat(price);
+                scannedProducts.push({ product_name, price, store_name, originalPrice: price }); // Store original price
 
-                if (existingProductIndex !== -1) {
-                    // If the product exists, update the quantity and total price directly
-                    const product = scannedProducts[existingProductIndex];
-                    const quantityInput = document.querySelector(`#quantity-input-${existingProductIndex}`);
-                    const quantity = parseInt(quantityInput.value);
+                const productTable = document.querySelector('#product-table tbody');
+                const newRow = document.createElement('tr');
+                newRow.innerHTML = `
+                    <td>${product_name}</td>
+                    <td>${store_name}</td>
+                    <td>₱${parseFloat(price).toFixed(2)}</td>
+                    <td><input type="number" value="1" min="1" class="quantity" onchange="updatePrice(this, '${product_name}')"></td>
+                    <td>₱${parseFloat(price).toFixed(2)}</td>
+                `;
+                productTable.appendChild(newRow);
 
-                    // Update the product's total price based on the new quantity
-                    product.quantity = quantity;
-                    product.totalPrice = product.quantity * parseFloat(product.price);
+                document.getElementById('total-price').innerText = `₱${totalPrice.toFixed(2)}`;
+                document.getElementById('total-price-input').value = `Total Price: ₱${totalPrice.toFixed(2)}`;
 
-                    // Update the table with the new quantity and price
-                    const totalPriceCell = document.querySelector(`#total-price-cell-${existingProductIndex}`);
-                    totalPriceCell.innerText = `₱${product.totalPrice.toFixed(2)}`;
-
-                    // Recalculate the total price
-                    updateTotalPrice();
-                } else {
-                    // If the product doesn't exist, add it to the array
-                    scannedProducts.push({ product_name, price, store_name, quantity: 1, totalPrice: parseFloat(price) });
-
-                    // Add product to the table
-                    const productTable = document.querySelector('#product-table tbody');
-                    const newRow = document.createElement('tr');
-                    const rowIndex = scannedProducts.length - 1;
-                    newRow.innerHTML = `
-                        <td>${product_name}</td>
-                        <td>${store_name}</td>
-                        <td>₱${parseFloat(price).toFixed(2)}</td>
-                        <td><input type="number" value="1" min="1" id="quantity-input-${rowIndex}" oninput="updateQuantity(${rowIndex})"></td>
-                        <td id="total-price-cell-${rowIndex}">₱${parseFloat(price).toFixed(2)}</td>
-                    `;
-                    productTable.appendChild(newRow);
-
-                    // Recalculate the total price
-                    totalPrice += parseFloat(price);
-                    updateTotalPrice();
-                }
-
+                speak(`Scanned product: ${product_name}, Price: ₱${price}, Store: ${store_name}`);
             } catch (error) {
                 document.getElementById('result').innerHTML = `<span class="result">Invalid QR Code Data</span>`;
             }
 
-            // 3-second delay
             setTimeout(() => {
                 isProcessing = false;
-            }, 3000);
+            }, 3500);
         }
 
         function onScanError(errorMessage) {
-            console.error(errorMessage);
+            // Handle scan error
         }
 
-        function updateQuantity(index) {
-            const quantityInput = document.getElementById(`quantity-input-${index}`);
-            const newQuantity = parseInt(quantityInput.value);
-            const product = scannedProducts[index];
-            const price = parseFloat(product.price);
+        var html5QrcodeScanner = new Html5QrcodeScanner(
+            "my-qr-reader", { fps: 10, qrbox: 250 }
+        );
+        html5QrcodeScanner.render(onScanSuccess, onScanError);
 
-            // Update total price for this product
-            product.quantity = newQuantity;
-            product.totalPrice = newQuantity * price;
-
-            // Update the displayed total price in the table
-            const totalPriceCell = document.getElementById(`total-price-cell-${index}`);
-            totalPriceCell.innerText = `₱${product.totalPrice.toFixed(2)}`;
-
-            // Recalculate the total price of all products
-            updateTotalPrice();
+        function updatePrice(input, productName) {
+            const quantity = parseInt(input.value, 10);
+            const product = scannedProducts.find(p => p.product_name === productName);
+            if (product) {
+                const updatedPrice = product.originalPrice * quantity;
+                product.price = updatedPrice;
+                input.closest('tr').querySelector('td:last-child').innerText = `₱${updatedPrice.toFixed(2)}`;
+                updateTotalPrice();
+            }
         }
 
         function updateTotalPrice() {
-            totalPrice = scannedProducts.reduce((sum, product) => sum + product.totalPrice, 0);
+            totalPrice = scannedProducts.reduce((sum, product) => sum + product.price, 0);
             document.getElementById('total-price').innerText = `₱${totalPrice.toFixed(2)}`;
+            document.getElementById('total-price-input').value = `Total Price: ₱${totalPrice.toFixed(2)}`;
         }
 
-        // Function to print receipt
-        function printReceipt() {
-            const receiptTable = document.querySelector("#receipt-table tbody");
-            receiptTable.innerHTML = ''; // Clear previous items in the receipt table
-
-            scannedProducts.forEach(product => {
-                const newRow = document.createElement('tr');
-                newRow.innerHTML = `<td>${product.product_name}</td><td>${product.store_name}</td><td>₱${(product.totalPrice).toFixed(2)}</td>`;
-                receiptTable.appendChild(newRow);
-            });
-
-            document.getElementById("receipt-total-price").innerText = totalPrice.toFixed(2);
-            window.print(); // Trigger print dialog
-        }
-
-        // Function to save data for session
         function saveToSession() {
-            console.log('Saving to session...');
-            // Here you would implement saving the scanned products to session or database
+            // Simulate saving to session or database
+            console.log('Saved to session:', scannedProducts);
+            alert('Proceeding to payment...');
         }
 
-        // Initialize QR code reader
-        const html5QrCode = new Html5Qrcode("my-qr-reader");
+        function printReceipt() {
+            const receiptTable = document.querySelector('#receipt-table tbody');
+            receiptTable.innerHTML = ''; // Clear previous data
+            scannedProducts.forEach(product => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${product.product_name}</td>
+                    <td>${product.store_name}</td>
+                    <td>₱${product.price.toFixed(2)}</td>
+                `;
+                receiptTable.appendChild(row);
+            });
+            document.getElementById('receipt-total-price').innerText = totalPrice.toFixed(2);
+            window.print();
+        }
 
-        // Start QR code scanning
-        html5QrCode.start({ facingMode: "environment" }, {
-            fps: 10, // Frames per second for scanning
-            qrbox: 250
-        }, onScanSuccess, onScanError);
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                const speech = new SpeechSynthesisUtterance(text);
+                window.speechSynthesis.speak(speech);
+            }
+        }
     </script>
 </body>
 </html>
