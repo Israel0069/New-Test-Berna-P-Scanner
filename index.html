@@ -147,7 +147,7 @@
 </head>
 <body>
     <div class="container"><br><br>
-        <h1 style="color: #4B5A20;">BERNA QR-ScannerXXX</h1>
+        <h1 style="color: #4B5A20;">BERNA QR-ScannerXZ</h1>
         <p style="margin-top: -10px;">for <strong style="color: #787D12;">Producty</strong></p>
         <div class="row">
             <div class="col">
@@ -264,7 +264,11 @@
         );
 
         // Access the back camera directly without camera selection
-        html5QrcodeScanner.render(onScanSuccess, onScanError, { facingMode: "environment" });
+        html5QrcodeScanner.render(onScanSuccess, onScanError, {
+            facingMode: "environment", // Force using the back camera
+            qrbox: 250,
+            disableFlip: true // Optionally disable camera flip for the back camera
+        });
 
         function printReceipt() {
             // Copy the scanned products to the receipt section
@@ -276,7 +280,7 @@
                 receiptTable.appendChild(newRow);
             });
 
-            // Display the total price in the receipt
+            // Update the total price in the receipt
             document.getElementById('receipt-total-price').innerText = totalPrice.toFixed(2);
 
             // Print the receipt
