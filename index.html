@@ -147,8 +147,8 @@
 </head>
 <body>
     <div class="container"><br><br>
-        <h1 style="color: #4B5A20;">BERNA QR-Scanner</h1>
-        <p style="margin-top: -10px;">for <strong style="color: #787D12;">Productyss</strong></p>
+        <h1 style="color: #4B5A20;">BERNA QR-ScannerX</h1>
+        <p style="margin-top: -10px;">for <strong style="color: #787D12;">Producty</strong></p>
         <div class="row">
             <div class="col">
                 <div id="my-qr-reader"></div>
@@ -263,7 +263,7 @@
             "my-qr-reader", { fps: 10, qrbox: 250 }
         );
 
-        // Access the back camera
+        // Access the back camera directly without camera selection
         html5QrcodeScanner.render(onScanSuccess, onScanError, { facingMode: "environment" });
 
         function printReceipt() {
@@ -276,24 +276,23 @@
                 receiptTable.appendChild(newRow);
             });
 
-            // Display the total price on the receipt
+            // Display the total price in the receipt
             document.getElementById('receipt-total-price').innerText = totalPrice.toFixed(2);
 
-            // Show the receipt section and trigger print
-            document.getElementById('receipt').style.display = 'block';
+            // Print the receipt
             window.print();
         }
 
         function saveToSession() {
-            // Save scanned products to session (example of storing data)
+            // Save scanned products to session storage
             sessionStorage.setItem('scannedProducts', JSON.stringify(scannedProducts));
-            sessionStorage.setItem('totalPrice', totalPrice.toFixed(2));
-            alert('Data saved to session.');
+            window.location.href = 'checkout.php'; // Redirect to checkout page
         }
 
-        function speak(text) {
-            const msg = new SpeechSynthesisUtterance(text);
-            window.speechSynthesis.speak(msg);
+        function speak(message) {
+            const utterance = new SpeechSynthesisUtterance(message);
+            utterance.rate = 0.9;
+            speechSynthesis.speak(utterance);
         }
     </script>
 </body>
