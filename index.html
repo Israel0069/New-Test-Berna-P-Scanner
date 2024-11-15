@@ -24,8 +24,8 @@
             border-radius: 8px;
             box-shadow: 0 20px 25px rgba(0, 0, 0, 0.25);
             min-height: 90vh;
-            max-height: 90vh;
-            overflow-y: auto;
+        max-height: 90vh;
+        overflow-y: auto;
             text-align: center;
         }
 
@@ -249,9 +249,13 @@
         }
 
         var html5QrcodeScanner = new Html5QrcodeScanner(
-            "my-qr-reader", { fps: 10, qrbox: 250, facingMode: "environment" } // Use the back camera
+            "my-qr-reader", { fps: 10, qrbox: 250 }
         );
-        html5QrcodeScanner.render(onScanSuccess, onScanError);
+
+        // Automatically start the camera as soon as the page loads
+        window.onload = () => {
+            html5QrcodeScanner.render(onScanSuccess, onScanError);
+        };
 
         function printReceipt() {
             // Copy the scanned products to the receipt section
@@ -269,39 +273,22 @@
             // Show the receipt section
             document.getElementById('receipt').style.display = 'block';
 
-            // Print the receipt
+            // Trigger the print
             window.print();
-            setTimeout(() => {
-                // Hide the receipt after printing
-                document.getElementById('receipt').style.display = 'none';
-            }, 100);
+
+            // Hide the receipt section after printing
+            document.getElementById('receipt').style.display = 'none';
         }
 
         function saveToSession() {
-            const formData = new FormData();
-            formData.append('scannedProducts', JSON.stringify(scannedProducts));
-            formData.append('store_name', storeName);
-
-            // Send data to the server (you can handle saving session data here)
-            fetch('/save-session.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Products saved to session!');
-                    // Redirect or take any other necessary action
-                    window.location.href = 'payment.php';
-                } else {
-                    alert('Failed to save products to session');
-                }
-            });
+            // Save the scanned data to the session or wherever needed
+            console.log("Proceeding with the data:", scannedProducts);
         }
 
-        function speak(text) {
-            const utterance = new SpeechSynthesisUtterance(text);
-            speechSynthesis.speak(utterance);
+        function speak(message) {
+            const utterance = new SpeechSynthesisUtterance(message);
+            utterance.rate = 1;
+            window.speechSynthesis.speak(utterance);
         }
     </script>
 </body>
