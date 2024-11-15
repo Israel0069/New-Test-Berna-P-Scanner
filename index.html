@@ -108,6 +108,7 @@
             }
         }
 
+        /* Style for the receipt printout */
         #receipt {
             display: none;
         }
@@ -156,7 +157,7 @@
                 <h4>SCAN RESULT</h4>
                 <div id="result">Result Here</div>
                 <button onclick="printReceipt()">Print Receipt</button>
-                <button onclick="saveToSession()">Proceed</button>
+                <button onclick="saveToSession()">Proceed</button> <!-- New Button -->
                 <h4>Total Price</h4>
                 <div id="total-price">0.00</div>
             </div>
@@ -168,10 +169,8 @@
                 <thead>
                     <tr>
                         <th>Product Name</th>
-                        <th>Store Name</th>
+                        <th>Store Name</th> <!-- Added Store Name column -->
                         <th>Price</th>
-                        <th>Quantity</th>
-                        <th>Total</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -191,7 +190,7 @@
             <thead>
                 <tr>
                     <th>Product Name</th>
-                    <th>Store Name</th>
+                    <th>Store Name</th> <!-- Added Store Name column -->
                     <th>Price</th>
                 </tr>
             </thead>
@@ -204,42 +203,53 @@
 
     <script type="text/javascript">
         let totalPrice = 0;
-        let isProcessing = false;
-        let scannedProducts = [];
+        let isProcessing = false; // Variable to control scan delay
+        let scannedProducts = []; // Array to store scanned products
+        let scannedCodes = new Set(); // Set to store unique QR codes
 
+        // Get the store_name from the URL parameters
         const urlParams = new URLSearchParams(window.location.search);
-        const storeName = urlParams.get('store_name') || 'DefaultStoreName';
+        const storeName = urlParams.get('store_name') || 'DefaultStoreName'; // Replace with the actual store name variable
 
         function onScanSuccess(qrCodeMessage) {
-            if (isProcessing) return;
+            if (isProcessing) return; // Ignore scans during the delay
             isProcessing = true;
 
             try {
                 const qrData = JSON.parse(qrCodeMessage);
-                const { product_name, price, store_name } = qrData;
+                const { product_name, price, store_name, qr_code } = qrData; // Get store_name from QR data
+
+                // Check for duplicate QR codes
+                if (scannedCodes.has(qr_code)) {
+                    document.getElementById('result').innerHTML = `<span class="result">Duplicate QR Code detected. Please scan a different one.</span>`;
+                    isProcessing = false;
+                    return;
+                }
+
+                // Add QR code to the scanned set
+                scannedCodes.add(qr_code);
 
                 totalPrice += parseFloat(price);
-                scannedProducts.push({ product_name, price, store_name, originalPrice: price }); // Store original price
+                scannedProducts.push({ product_name, price, store_name, qr_code }); // Include store_name in scanned products
 
+                // Add product to the table
                 const productTable = document.querySelector('#product-table tbody');
                 const newRow = document.createElement('tr');
-                newRow.innerHTML = `
-                    <td>${product_name}</td>
-                    <td>${store_name}</td>
-                    <td>₱${parseFloat(price).toFixed(2)}</td>
-                    <td><input type="number" value="1" min="1" class="quantity" onchange="updatePrice(this, '${product_name}')"></td>
-                    <td>₱${parseFloat(price).toFixed(2)}</td>
-                `;
+                newRow.innerHTML = `<td>${product_name}</td><td>${store_name}</td><td>₱${parseFloat(price).toFixed(2)}</td>`; // Display store_name
                 productTable.appendChild(newRow);
 
+                // Update the total price
                 document.getElementById('total-price').innerText = `₱${totalPrice.toFixed(2)}`;
                 document.getElementById('total-price-input').value = `Total Price: ₱${totalPrice.toFixed(2)}`;
 
+                // Voice feedback
                 speak(`Scanned product: ${product_name}, Price: ₱${price}, Store: ${store_name}`);
+
             } catch (error) {
                 document.getElementById('result').innerHTML = `<span class="result">Invalid QR Code Data</span>`;
             }
 
+            // 3-second delay
             setTimeout(() => {
                 isProcessing = false;
             }, 3500);
@@ -252,52 +262,38 @@
         var html5QrcodeScanner = new Html5QrcodeScanner(
             "my-qr-reader", { fps: 10, qrbox: 250 }
         );
-        html5QrcodeScanner.render(onScanSuccess, onScanError);
 
-        function updatePrice(input, productName) {
-            const quantity = parseInt(input.value, 10);
-            const product = scannedProducts.find(p => p.product_name === productName);
-            if (product) {
-                const updatedPrice = product.originalPrice * quantity;
-                product.price = updatedPrice;
-                input.closest('tr').querySelector('td:last-child').innerText = `₱${updatedPrice.toFixed(2)}`;
-                updateTotalPrice();
-            }
-        }
-
-        function updateTotalPrice() {
-            totalPrice = scannedProducts.reduce((sum, product) => sum + product.price, 0);
-            document.getElementById('total-price').innerText = `₱${totalPrice.toFixed(2)}`;
-            document.getElementById('total-price-input').value = `Total Price: ₱${totalPrice.toFixed(2)}`;
-        }
-
-        function saveToSession() {
-            // Simulate saving to session or database
-            console.log('Saved to session:', scannedProducts);
-            alert('Proceeding to payment...');
-        }
+        // Access the back camera
+        html5QrcodeScanner.render(onScanSuccess, onScanError, { facingMode: "environment" });
 
         function printReceipt() {
+            // Copy the scanned products to the receipt section
             const receiptTable = document.querySelector('#receipt-table tbody');
-            receiptTable.innerHTML = ''; // Clear previous data
+            receiptTable.innerHTML = ''; // Clear previous content
             scannedProducts.forEach(product => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${product.product_name}</td>
-                    <td>${product.store_name}</td>
-                    <td>₱${product.price.toFixed(2)}</td>
-                `;
-                receiptTable.appendChild(row);
+                const newRow = document.createElement('tr');
+                newRow.innerHTML = `<td>${product.product_name}</td><td>${product.store_name}</td><td>₱${parseFloat(product.price).toFixed(2)}</td>`;
+                receiptTable.appendChild(newRow);
             });
+
+            // Display the total price on the receipt
             document.getElementById('receipt-total-price').innerText = totalPrice.toFixed(2);
+
+            // Show the receipt section and trigger print
+            document.getElementById('receipt').style.display = 'block';
             window.print();
         }
 
+        function saveToSession() {
+            // Save scanned products to session (example of storing data)
+            sessionStorage.setItem('scannedProducts', JSON.stringify(scannedProducts));
+            sessionStorage.setItem('totalPrice', totalPrice.toFixed(2));
+            alert('Data saved to session.');
+        }
+
         function speak(text) {
-            if ('speechSynthesis' in window) {
-                const speech = new SpeechSynthesisUtterance(text);
-                window.speechSynthesis.speak(speech);
-            }
+            const msg = new SpeechSynthesisUtterance(text);
+            window.speechSynthesis.speak(msg);
         }
     </script>
 </body>
