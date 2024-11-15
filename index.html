@@ -171,6 +171,8 @@
                         <th>Product Name</th>
                         <th>Store Name</th> <!-- Added Store Name column -->
                         <th>Price</th>
+                        <th>Quantity</th> <!-- Input box for quantity -->
+                        <th>Total Price</th> <!-- Total Price column -->
                     </tr>
                 </thead>
                 <tbody>
@@ -222,18 +224,21 @@
                 const existingProductIndex = scannedProducts.findIndex(product => product.product_name === product_name && product.store_name === store_name);
 
                 if (existingProductIndex !== -1) {
-                    // If the product exists, ask for the quantity to multiply
-                    const quantity = prompt(`How many ${product_name} would you like to add?`, "1");
+                    // If the product exists, update the quantity and total price directly
+                    const product = scannedProducts[existingProductIndex];
+                    const quantityInput = document.querySelector(`#quantity-input-${existingProductIndex}`);
+                    const quantity = parseInt(quantityInput.value);
 
-                    if (quantity && !isNaN(quantity) && quantity > 0) {
-                        // Multiply the price based on the quantity
-                        const product = scannedProducts[existingProductIndex];
-                        product.quantity += parseInt(quantity);
-                        product.totalPrice = product.quantity * parseFloat(product.price); // Update total price for the product
+                    // Update the product's total price based on the new quantity
+                    product.quantity = quantity;
+                    product.totalPrice = product.quantity * parseFloat(product.price);
 
-                        // Update the product table with the new quantity and price
-                        updateProductTable();
-                    }
+                    // Update the table with the new quantity and price
+                    const totalPriceCell = document.querySelector(`#total-price-cell-${existingProductIndex}`);
+                    totalPriceCell.innerText = `₱${product.totalPrice.toFixed(2)}`;
+
+                    // Recalculate the total price
+                    updateTotalPrice();
                 } else {
                     // If the product doesn't exist, add it to the array
                     scannedProducts.push({ product_name, price, store_name, quantity: 1, totalPrice: parseFloat(price) });
@@ -241,16 +246,19 @@
                     // Add product to the table
                     const productTable = document.querySelector('#product-table tbody');
                     const newRow = document.createElement('tr');
-                    newRow.innerHTML = `<td>${product_name}</td><td>${store_name}</td><td>₱${parseFloat(price).toFixed(2)}</td>`; // Display store_name
+                    const rowIndex = scannedProducts.length - 1;
+                    newRow.innerHTML = `
+                        <td>${product_name}</td>
+                        <td>${store_name}</td>
+                        <td>₱${parseFloat(price).toFixed(2)}</td>
+                        <td><input type="number" value="1" min="1" id="quantity-input-${rowIndex}" oninput="updateQuantity(${rowIndex})"></td>
+                        <td id="total-price-cell-${rowIndex}">₱${parseFloat(price).toFixed(2)}</td>
+                    `;
                     productTable.appendChild(newRow);
 
-                    // Update the total price
+                    // Recalculate the total price
                     totalPrice += parseFloat(price);
-                    document.getElementById('total-price').innerText = `₱${totalPrice.toFixed(2)}`;
-                    document.getElementById('total-price-input').value = `Total Price: ₱${totalPrice.toFixed(2)}`;
-
-                    // Voice feedback
-                    speak(`Scanned product: ${product_name}, Price: ₱${price}, Store: ${store_name}`);
+                    updateTotalPrice();
                 }
 
             } catch (error) {
@@ -260,11 +268,34 @@
             // 3-second delay
             setTimeout(() => {
                 isProcessing = false;
-            }, 3500);
+            }, 3000);
         }
 
         function onScanError(errorMessage) {
             console.error(errorMessage);
+        }
+
+        function updateQuantity(index) {
+            const quantityInput = document.getElementById(`quantity-input-${index}`);
+            const newQuantity = parseInt(quantityInput.value);
+            const product = scannedProducts[index];
+            const price = parseFloat(product.price);
+
+            // Update total price for this product
+            product.quantity = newQuantity;
+            product.totalPrice = newQuantity * price;
+
+            // Update the displayed total price in the table
+            const totalPriceCell = document.getElementById(`total-price-cell-${index}`);
+            totalPriceCell.innerText = `₱${product.totalPrice.toFixed(2)}`;
+
+            // Recalculate the total price of all products
+            updateTotalPrice();
+        }
+
+        function updateTotalPrice() {
+            totalPrice = scannedProducts.reduce((sum, product) => sum + product.totalPrice, 0);
+            document.getElementById('total-price').innerText = `₱${totalPrice.toFixed(2)}`;
         }
 
         // Function to print receipt
